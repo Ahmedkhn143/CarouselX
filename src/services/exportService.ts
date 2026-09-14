@@ -34,7 +34,7 @@ export const ExportService = {
             pdf.addImage(dataUrl, 'PNG', 0, 0, w, h, undefined, 'FAST');
         }
 
-        pdf.save('pak-carousel.pdf');
+        pdf.save('carouselx-slides.pdf');
     },
 
     /**
@@ -42,7 +42,7 @@ export const ExportService = {
      */
     downloadSlideAsPng(dataUrl: string, slideNumber: number): void {
         const link = document.createElement('a');
-        link.download = `carousel-slide-${slideNumber}.png`;
+        link.download = `carouselx-slide-${slideNumber}.png`;
         link.href = dataUrl;
         document.body.appendChild(link);
         link.click();

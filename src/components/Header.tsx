@@ -1,5 +1,6 @@
 import React from 'react';
 import { useCarousel } from '../context/CarouselContext';
+import { CarouselXLogo } from './common/CarouselXLogo';
 
 interface HeaderProps {
     onExportPdf: () => void;
@@ -12,12 +13,13 @@ export const Header: React.FC<HeaderProps> = ({ onExportPdf, onExportPng }) => {
     return (
         <header className="top-header">
             <div className="header-left">
-                <div className="logo-icon">PC</div>
+                <CarouselXLogo size={36} />
                 <div className="logo-text">
-                    Pak<span>Carousel</span>
-                    <span style={{ fontWeight: 400, fontSize: '12px', color: 'var(--text-muted)' }}>.ai</span>
+                    Carousel<span>X</span>
                 </div>
-                <span className="pk-flag">🇵🇰 PK</span>
+                <span className="logo-tag-badge">
+                    <i className="fa-solid fa-wand-magic-sparkles" style={{ fontSize: '10px' }}></i> AI
+                </span>
             </div>
             <div className="header-right">
                 <button

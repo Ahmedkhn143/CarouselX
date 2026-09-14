@@ -1,7 +1,8 @@
 import type { Slide, PlatformType } from '../types/carousel';
 
 const API_KEY_STORAGE = 'claude_api_key';
-const DRAFT_STORAGE = 'pak_carousel_draft';
+const DRAFT_STORAGE = 'carouselx_draft';
+const LEGACY_DRAFT_STORAGE = 'pak_carousel_draft';
 
 export interface SavedDraft {
     slides: Slide[];
@@ -34,7 +35,7 @@ export const StorageService = {
 
     loadDraft(): SavedDraft | null {
         try {
-            const raw = localStorage.getItem(DRAFT_STORAGE);
+            const raw = localStorage.getItem(DRAFT_STORAGE) || localStorage.getItem(LEGACY_DRAFT_STORAGE);
             if (!raw) return null;
             return JSON.parse(raw);
         } catch (e) {
