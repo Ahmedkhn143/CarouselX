@@ -11,10 +11,18 @@ import { ApiKeyModal } from './components/modals/ApiKeyModal';
 import { LoadingOverlay } from './components/common/LoadingOverlay';
 import { Toast } from './components/common/Toast';
 import { ExportService } from './services/exportService';
+import { LandingPage } from './components/landing/LandingPage';
 
 const CarouselApp: React.FC = () => {
     const canvasHandleRef = useRef<SlideCanvasHandle | null>(null);
-    const { slides, currentSlideIndex, platform, setIsLoading, showToast } = useCarousel();
+    const {
+        slides,
+        currentSlideIndex,
+        platform,
+        setIsLoading,
+        showToast,
+        currentView
+    } = useCarousel();
 
     const handleExportPdf = async () => {
         if (!canvasHandleRef.current) return;
@@ -42,6 +50,16 @@ const CarouselApp: React.FC = () => {
             showToast(`Slide #${currentSlideIndex + 1} downloaded as PNG!`);
         }
     };
+
+    if (currentView === 'landing') {
+        return (
+            <>
+                <LandingPage />
+                <LoadingOverlay />
+                <Toast />
+            </>
+        );
+    }
 
     return (
         <div className="app-container">

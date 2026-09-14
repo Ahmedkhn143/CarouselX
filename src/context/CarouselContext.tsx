@@ -54,7 +54,10 @@ interface CarouselContextType {
     setIsAiModalOpen: (open: boolean) => void;
     setIsTemplateModalOpen: (open: boolean) => void;
     setIsApiKeyModalOpen: (open: boolean) => void;
+    currentView: 'landing' | 'studio';
     setIsLoading: (loading: boolean, message?: string) => void;
+    navigateToStudio: (options?: { template?: string; topic?: string }) => void;
+    navigateToLanding: () => void;
     showToast: (message: string) => void;
     saveDraft: () => void;
 }
@@ -87,9 +90,22 @@ export const CarouselProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const [isTemplateModalOpen, setIsTemplateModalOpen] = useState<boolean>(false);
     const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState<boolean>(false);
 
+    const [currentView, setCurrentView] = useState<'landing' | 'studio'>('landing');
+
     const [isLoading, setIsLoadingState] = useState<boolean>(false);
     const [loadingMessage, setLoadingMessage] = useState<string>('Processing...');
     const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+    const navigateToStudio = (options?: { template?: string; topic?: string }) => {
+        if (options?.template) {
+            setTemplate(options.template);
+        }
+        setCurrentView('studio');
+    };
+
+    const navigateToLanding = () => {
+        setCurrentView('landing');
+    };
 
     // Auto-load draft on mount
     useEffect(() => {
@@ -233,6 +249,7 @@ export const CarouselProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 isAiModalOpen,
                 isTemplateModalOpen,
                 isApiKeyModalOpen,
+                currentView,
                 isLoading,
                 loadingMessage,
                 toastMessage,
@@ -263,6 +280,8 @@ export const CarouselProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 setIsTemplateModalOpen,
                 setIsApiKeyModalOpen,
                 setIsLoading,
+                navigateToStudio,
+                navigateToLanding,
                 showToast,
                 saveDraft
             }}

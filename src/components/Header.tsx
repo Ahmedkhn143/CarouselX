@@ -8,17 +8,31 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ onExportPdf, onExportPng }) => {
-    const { setIsApiKeyModalOpen, saveDraft } = useCarousel();
+    const { setIsApiKeyModalOpen, saveDraft, navigateToLanding } = useCarousel();
 
     return (
         <header className="top-header">
             <div className="header-left">
-                <CarouselXLogo size={36} />
-                <div className="logo-text">
-                    Carousel<span>X</span>
+                <div
+                    style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}
+                    onClick={navigateToLanding}
+                    title="Back to CarouselX Home"
+                >
+                    <CarouselXLogo size={36} />
+                    <div className="logo-text">
+                        Carousel<span>X</span>
+                    </div>
                 </div>
+                <button
+                    className="header-btn"
+                    onClick={navigateToLanding}
+                    style={{ padding: '6px 12px', fontSize: '12px', background: 'transparent' }}
+                    title="Return to Landing Page"
+                >
+                    <i className="fa-solid fa-house"></i> Home
+                </button>
                 <span className="logo-tag-badge">
-                    <i className="fa-solid fa-wand-magic-sparkles" style={{ fontSize: '10px' }}></i> AI
+                    <i className="fa-solid fa-wand-magic-sparkles" style={{ fontSize: '10px' }}></i> STUDIO
                 </span>
             </div>
             <div className="header-right">

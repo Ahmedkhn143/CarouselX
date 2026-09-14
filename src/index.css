@@ -1,3 +1,5 @@
+@import './styles/landing.css';
+
 /* ===== Design Tokens ===== */
 :root {
     /* Colors - Light purple theme like aiCarousels */
