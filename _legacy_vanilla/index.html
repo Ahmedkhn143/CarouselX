@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pak Carousel AI — LinkedIn & Instagram Carousel Generator</title>
+    <meta name="description" content="The fastest way to create stunning LinkedIn and Instagram carousels with AI. Built for Pakistani creators, marketers, and businesses.">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body>
+
+    <!-- ===== Top Header Bar ===== -->
+    <header class="top-header">
+        <div class="header-left">
+            <div class="logo-icon">PC</div>
+            <div class="logo-text">Pak<span>Carousel</span><span style="font-weight:400;font-size:12px;color:var(--text-muted)">.ai</span></div>
+            <span class="pk-flag">🇵🇰 PK</span>
+        </div>
+        <div class="header-right">
+            <button class="header-btn" id="btn-api-settings"><i class="fa-solid fa-key"></i> API Key</button>
+            <button class="header-btn accent-outline" id="btn-save-draft"><i class="fa-solid fa-bookmark"></i> Save Draft</button>
+            <button class="header-btn primary" id="btn-download"><i class="fa-solid fa-download"></i> Download</button>
+        </div>
+    </header>
+
+    <div class="app-container">
+        <!-- ===== Slim Icon Sidebar ===== -->
+        <nav class="icon-sidebar">
+            <button class="icon-tab active" data-tab="tab-ai" title="AI Generator"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
+            <button class="icon-tab" data-tab="tab-template" title="Templates"><i class="fa-solid fa-palette"></i></button>
+            <button class="icon-tab" data-tab="tab-text" title="Text & Content"><i class="fa-solid fa-font"></i></button>
+            <button class="icon-tab" data-tab="tab-background" title="Backgrounds"><i class="fa-solid fa-image"></i></button>
+            <button class="icon-tab" data-tab="tab-elements" title="Design Elements"><i class="fa-solid fa-shapes"></i></button>
+            <button class="icon-tab" data-tab="tab-settings" title="Settings"><i class="fa-solid fa-sliders"></i></button>
+        </nav>
+
+        <!-- ===== Settings Panel ===== -->
+        <aside class="settings-panel">
+
+            <!-- TAB: AI Generator -->
+            <div class="tab-panel active" id="tab-ai">
+                <div class="generate-section">
+                    <div class="generate-title">
+                        AI Carousel Generator <span class="pro-badge"><i class="fa-solid fa-sparkles"></i> AI</span>
+                    </div>
+                    <button class="btn-generate-main" id="btn-generate">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> Generate Carousel...
+                    </button>
+                    <div class="or-divider">or</div>
+                    <button class="btn-import" id="btn-import-text">
+                        <i class="fa-solid fa-upload"></i> Import Carousel...
+                    </button>
+                </div>
+
+                <div class="panel-section">
+                    <h3 style="font-size:14px;font-weight:700;margin-bottom:14px;">Template Settings</h3>
+                    
+                    <div class="form-group" style="margin-bottom:14px;">
+                        <label>Platform Format</label>
+                        <select class="platform-select" id="platform-format">
+                            <option value="linkedin">🔗 LinkedIn (4:5, Recommended)</option>
+                            <option value="instagram">📷 Instagram (1:1, Square)</option>
+                            <option value="twitter">🐦 Twitter / X (16:9)</option>
+                        </select>
+                    </div>
+
+                    <button class="btn-select-template" id="btn-open-template-modal">
+                        <i class="fa-solid fa-swatchbook"></i> Select Template...
+                    </button>
+                </div>
+
+                <!-- Color Palette -->
+                <div class="panel-section">
+                    <div class="panel-section-header" data-toggle="color-body">
+                        <h3>Color Palette</h3>
+                        <i class="fa-solid fa-chevron-down chevron"></i>
+                    </div>
+                    <div class="panel-section-body" id="color-body">
+                        <div class="color-grid">
+                            <div class="color-swatch active" style="background:#FBBF24" data-color="#FBBF24"></div>
+                            <div class="color-swatch" style="background:#6366F1" data-color="#6366F1"></div>
+                            <div class="color-swatch" style="background:#10B981" data-color="#10B981"></div>
+                            <div class="color-swatch" style="background:#EF4444" data-color="#EF4444"></div>
+                            <div class="color-swatch" style="background:#1E1B4B" data-color="#1E1B4B"></div>
+                            <div class="color-swatch" style="background:#FFFFFF;border:1px solid #ddd" data-color="#FFFFFF"></div>
+                            <div class="color-swatch" style="background:#EC4899" data-color="#EC4899"></div>
+                            <div class="color-swatch" style="background:#F97316" data-color="#F97316"></div>
+                            <div class="color-swatch" style="background:#14B8A6" data-color="#14B8A6"></div>
+                            <div class="color-swatch" style="background:#8B5CF6" data-color="#8B5CF6"></div>
+                            <div class="color-swatch" style="background:#64748B" data-color="#64748B"></div>
+                            <div class="color-swatch" style="background:#0EA5E9" data-color="#0EA5E9"></div>
+                        </div>
+                        <div class="color-custom-row">
+                            <div class="color-input-wrap">
+                                <input type="color" id="color-bg" value="#FBBF24">
+                                <span>BG</span>
+                            </div>
+                            <div class="color-input-wrap">
+                                <input type="color" id="color-text" value="#1E1B4B">
+                                <span>Text</span>
+                            </div>
+                            <div class="color-input-wrap">
+                                <input type="color" id="color-accent" value="#7C3AED">
+                                <span>Accent</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Text Settings -->
+                <div class="panel-section">
+                    <div class="panel-section-header" data-toggle="text-body">
+                        <h3>Text Settings</h3>
+                        <i class="fa-solid fa-chevron-down chevron"></i>
+                    </div>
+                    <div class="panel-section-body" id="text-body">
+                        <div class="form-group" style="margin-bottom:10px;">
+                            <label>Heading Font</label>
+                            <select class="platform-select" id="font-heading">
+                                <option value="Playfair Display">Playfair Display (Serif)</option>
+                                <option value="Bebas Neue">Bebas Neue (Condensed)</option>
+                                <option value="Inter">Inter (Sans-serif)</option>
+                                <option value="Noto Nastaliq Urdu">Noto Nastaliq Urdu (Urdu)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Body Font</label>
+                            <select class="platform-select" id="font-body">
+                                <option value="Inter">Inter (Sans-serif)</option>
+                                <option value="Playfair Display">Playfair Display</option>
+                                <option value="Noto Nastaliq Urdu">Noto Nastaliq Urdu</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Toggles -->
+                <div class="panel-section">
+                    <div class="panel-section-header" data-toggle="effects-body">
+                        <h3>Background Effects</h3>
+                        <i class="fa-solid fa-chevron-down chevron"></i>
+                    </div>
+                    <div class="panel-section-body" id="effects-body">
+                        <div class="toggle-row">
+                            <label>Show decorations</label>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="toggle-decorations" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <div class="panel-section-header" data-toggle="counter-body">
+                        <h3>Counter & Corners</h3>
+                        <i class="fa-solid fa-chevron-down chevron"></i>
+                    </div>
+                    <div class="panel-section-body" id="counter-body">
+                        <div class="toggle-row">
+                            <label>Show slide counter</label>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="toggle-counter" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <div class="panel-section-header" data-toggle="creator-body">
+                        <h3>Creator Info</h3>
+                        <i class="fa-solid fa-chevron-down chevron"></i>
+                    </div>
+                    <div class="panel-section-body" id="creator-body">
+                        <div class="toggle-row" style="margin-bottom:10px;">
+                            <label>Show creator branding</label>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="toggle-branding" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label>Your Name</label>
+                            <input type="text" id="creator-name" value="Hamza" placeholder="Your name">
+                        </div>
+                        <div class="form-group" style="margin-top:8px;">
+                            <label>Your Title / Handle</label>
+                            <input type="text" id="creator-handle" value="Freelancer & Creator" placeholder="@handle or title">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: Templates (placeholder) -->
+            <div class="tab-panel" id="tab-template">
+                <div class="panel-section">
+                    <h3 style="font-size:14px;font-weight:700;margin-bottom:14px;">Choose Template Style</h3>
+                    <p style="font-size:12px;color:var(--text-secondary);">Click 'Select Template' to browse our template gallery.</p>
+                    <button class="btn-select-template" id="btn-open-template-modal-2" style="margin-top:16px;">
+                        <i class="fa-solid fa-swatchbook"></i> Open Template Gallery
+                    </button>
+                </div>
+            </div>
+
+            <!-- TAB: Text & Content -->
+            <div class="tab-panel" id="tab-text">
+                <div class="panel-section">
+                    <h3 style="font-size:14px;font-weight:700;margin-bottom:14px;">Edit Slide Content</h3>
+                    <p style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;">Click on any text on the canvas to edit it directly. Or edit here:</p>
+                    <div class="form-group" style="margin-bottom:10px;">
+                        <label>Slide Title</label>
+                        <input type="text" id="edit-slide-title" placeholder="Slide title...">
+                    </div>
+                    <div class="form-group" style="margin-bottom:10px;">
+                        <label>Slide Body / Subtitle</label>
+                        <textarea id="edit-slide-body" placeholder="Body text or subtitle..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Badge / Step Label</label>
+                        <input type="text" id="edit-slide-badge" placeholder="e.g. Step 1, Tip #2">
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: Backgrounds -->
+            <div class="tab-panel" id="tab-background">
+                <div class="panel-section">
+                    <h3 style="font-size:14px;font-weight:700;margin-bottom:14px;">Background Options</h3>
+                    <div class="color-grid">
+                        <div class="color-swatch" style="background:linear-gradient(135deg,#667eea,#764ba2)" data-bg-gradient="linear-gradient(135deg,#667eea,#764ba2)"></div>
+                        <div class="color-swatch" style="background:linear-gradient(135deg,#f093fb,#f5576c)" data-bg-gradient="linear-gradient(135deg,#f093fb,#f5576c)"></div>
+                        <div class="color-swatch" style="background:linear-gradient(135deg,#4facfe,#00f2fe)" data-bg-gradient="linear-gradient(135deg,#4facfe,#00f2fe)"></div>
+                        <div class="color-swatch" style="background:linear-gradient(135deg,#43e97b,#38f9d7)" data-bg-gradient="linear-gradient(135deg,#43e97b,#38f9d7)"></div>
+                        <div class="color-swatch" style="background:linear-gradient(135deg,#fa709a,#fee140)" data-bg-gradient="linear-gradient(135deg,#fa709a,#fee140)"></div>
+                        <div class="color-swatch" style="background:linear-gradient(135deg,#a18cd1,#fbc2eb)" data-bg-gradient="linear-gradient(135deg,#a18cd1,#fbc2eb)"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: Elements -->
+            <div class="tab-panel" id="tab-elements">
+                <div class="panel-section">
+                    <h3 style="font-size:14px;font-weight:700;margin-bottom:14px;">Design Elements</h3>
+                    <p style="font-size:12px;color:var(--text-secondary);">Decorative elements are auto-applied by templates. Toggle them in the Background Effects panel.</p>
+                </div>
+            </div>
+
+            <!-- TAB: Settings -->
+            <div class="tab-panel" id="tab-settings">
+                <div class="panel-section">
+                    <h3 style="font-size:14px;font-weight:700;margin-bottom:14px;">App Settings</h3>
+                    <div class="form-group" style="margin-bottom:12px;">
+                        <label>Claude API Key</label>
+                        <input type="password" id="settings-api-key" placeholder="sk-ant-...">
+                        <span class="helper-label">Key is stored locally and never leaves your browser.</span>
+                    </div>
+                    <div class="form-group">
+                        <label>AI Language / Tone</label>
+                        <select class="platform-select" id="ai-language">
+                            <option value="english">English (Professional)</option>
+                            <option value="hinglish">Roman Urdu / Hinglish (Casual)</option>
+                            <option value="bilingual">Bilingual (English + Urdu Script)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+        </aside>
+
+        <!-- ===== Main Editor ===== -->
+        <main class="editor-main">
+            <div class="canvas-viewport">
+                <button class="nav-arrow left" id="nav-prev"><i class="fa-solid fa-chevron-left"></i></button>
+                <div class="canvas-frame">
+                    <canvas id="slide-canvas"></canvas>
+                </div>
+                <button class="nav-arrow right" id="nav-next"><i class="fa-solid fa-chevron-right"></i></button>
+            </div>
+
+            <!-- Bottom Slide Panel -->
+            <div class="bottom-panel">
+                <div class="bottom-panel-header">
+                    <div class="slide-type-tabs">
+                        <button class="slide-type-tab active"><i class="fa-solid fa-align-left"></i> Standard</button>
+                        <button class="slide-type-tab"><i class="fa-solid fa-face-smile"></i> Emoji</button>
+                        <button class="slide-type-tab"><i class="fa-solid fa-user-circle"></i> Headshot</button>
+                        <button class="slide-type-tab"><i class="fa-solid fa-image"></i> Image</button>
+                    </div>
+                    <span class="slide-info" id="slide-counter-label">Slide #1</span>
+                </div>
+                <div class="slides-track" id="slides-track">
+                    <!-- Dynamically populated -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- ===== AI Generate Modal ===== -->
+    <div class="modal-overlay" id="ai-modal">
+        <div class="modal ai-gen-modal">
+            <div class="modal-header">
+                <div>
+                    <span class="step-indicator">STEP 1 OF 3</span>
+                    <h3 style="margin-top:8px;">Generate Content With AI</h3>
+                    <p style="font-size:13px;color:var(--text-secondary);">Create your carousel text instantly for the Pakistani market.</p>
+                </div>
+                <button class="modal-close" id="ai-modal-close">&times;</button>
+            </div>
+            <div class="form-group">
+                <label>Carousel Topic</label>
+                <textarea id="ai-topic" placeholder="e.g. 5 essential freelancing tips for Pakistani youth, Ramadan productivity hacks, morning routine for entrepreneurs..."></textarea>
+            </div>
+            <div class="form-group">
+                <label>Language / Tone</label>
+                <select class="platform-select" id="ai-tone">
+                    <option value="english">English (Professional LinkedIn)</option>
+                    <option value="hinglish">Roman Urdu / Hinglish</option>
+                    <option value="bilingual">Bilingual English + Urdu</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Number of Slides</label>
+                <select class="platform-select" id="ai-slide-count">
+                    <option value="6" selected>6 slides (Title + 4 Content + CTA)</option>
+                    <option value="8">8 slides</option>
+                    <option value="10">10 slides</option>
+                </select>
+            </div>
+            <div class="modal-footer">
+                <button class="header-btn" id="ai-modal-skip">Skip</button>
+                <button class="header-btn primary" id="ai-modal-generate"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== Template Modal ===== -->
+    <div class="modal-overlay" id="template-modal">
+        <div class="modal template-modal">
+            <div class="modal-header">
+                <h3>Select a Customizable Template</h3>
+                <button class="modal-close" id="template-modal-close">&times;</button>
+            </div>
+
+            <div style="display:flex;align-items:center;gap:16px;margin-bottom:8px;">
+                <div class="form-group" style="flex:0 0 auto;">
+                    <label>Platform Format</label>
+                    <select class="platform-select" id="tpl-format" style="width:180px;">
+                        <option value="linkedin">🔗 LinkedIn (4:5)</option>
+                        <option value="instagram">📷 Instagram (1:1)</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.04em;">Categories</label>
+                    <div class="template-categories" style="margin-top:4px;">
+                        <button class="cat-btn active" data-cat="all">All Templates</button>
+                        <button class="cat-btn" data-cat="modern">Modern</button>
+                        <button class="cat-btn" data-cat="minimal">Minimal</button>
+                        <button class="cat-btn" data-cat="bold">Bold</button>
+                        <button class="cat-btn" data-cat="gradient">Gradient</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="template-grid" id="template-grid">
+                <!-- Dynamically populated -->
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== API Key Modal ===== -->
+    <div class="modal-overlay" id="api-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Claude API Configuration</h3>
+                <button class="modal-close" id="api-modal-close">&times;</button>
+            </div>
+            <div class="form-group">
+                <label>Claude API Key</label>
+                <input type="password" id="claude-api-key" placeholder="sk-ant-api03-...">
+                <span class="helper-label">Your key is stored locally in your browser. We connect directly to Anthropic — your key never leaves your device.</span>
+            </div>
+            <div class="modal-footer">
+                <button class="header-btn" id="api-modal-cancel">Cancel</button>
+                <button class="header-btn primary" id="api-modal-save">Save API Key</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== Loading Overlay ===== -->
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="loader-ring"></div>
+        <div class="loader-text" id="loader-text">Generating your carousel with AI...</div>
+        <div class="loader-sub">This may take 10-15 seconds</div>
+    </div>
+
+    <!-- External Dependencies -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <!-- App Scripts -->
+    <script src="js/claude.js"></script>
+    <script src="js/canvas.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
