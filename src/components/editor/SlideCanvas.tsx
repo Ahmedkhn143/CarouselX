@@ -72,34 +72,32 @@ export const SlideCanvas = forwardRef<SlideCanvasHandle>((_, ref) => {
         return (0.2126 * r + 0.7152 * g + 0.0722 * b) < 140;
     }, []);
 
-    // Resize and scale canvas to fit viewport
+    const scalerContainerRef = useRef<HTMLDivElement | null>(null);
+
+    // Resize and scale canvas to fit viewport perfectly without ANY clipping
     const scaleCanvasElement = useCallback(() => {
         const frameEl = frameRef.current;
-        const canvas = fabricCanvasRef.current;
-        if (!frameEl || !canvas) return;
+        const containerEl = scalerContainerRef.current;
+        if (!frameEl || !containerEl) return;
 
         const dim = DIMENSIONS[platform];
-        const viewport = frameEl.parentElement;
+        const viewport = containerEl.parentElement;
         if (!viewport) return;
 
-        const maxW = Math.max(viewport.clientWidth - 120, 200);
-        const maxH = Math.max(viewport.clientHeight - 60, 200);
+        const maxW = Math.max(viewport.clientWidth - 140, 220);
+        const maxH = Math.max(viewport.clientHeight - 80, 220);
         const scale = Math.min(maxW / dim.width, maxH / dim.height, 1);
 
-        frameEl.style.width = `${Math.round(dim.width * scale)}px`;
-        frameEl.style.height = `${Math.round(dim.height * scale)}px`;
+        const scaledW = Math.round(dim.width * scale);
+        const scaledH = Math.round(dim.height * scale);
 
-        const upperCanvas = (canvas as any).upperCanvasEl;
-        const lowerCanvas = (canvas as any).lowerCanvasEl;
-        if (upperCanvas) {
-            upperCanvas.style.width = '100%';
-            upperCanvas.style.height = '100%';
-        }
-        if (lowerCanvas) {
-            lowerCanvas.style.width = '100%';
-            lowerCanvas.style.height = '100%';
-        }
-        canvas.calcOffset();
+        containerEl.style.width = `${scaledW}px`;
+        containerEl.style.height = `${scaledH}px`;
+
+        frameEl.style.width = `${dim.width}px`;
+        frameEl.style.height = `${dim.height}px`;
+        frameEl.style.transform = `scale(${scale})`;
+        frameEl.style.transformOrigin = 'center center';
     }, [platform]);
 
     // Draw full slide onto a given canvas
@@ -188,57 +186,67 @@ export const SlideCanvas = forwardRef<SlideCanvasHandle>((_, ref) => {
             }
         }
 
-        // 3. Badge / Step Label
+        // 3. Badge / Step Pill (Expert Designer Pill)
+        let badgeBottom = 100;
         if (slide.badge) {
             const isDark = isColorDark(bgCol);
-            const badgeBgCol = isDark ? 'rgba(255,255,255,0.18)' : accCol + '22';
+            const badgeBgCol = isDark ? 'rgba(255, 255, 255, 0.15)' : accCol + '20';
             const badgeTxtCol = isDark ? '#FFFFFF' : accCol;
 
-            const badgeText = new fabric.IText(slide.badge.toUpperCase(), {
-                fontSize: 22,
+            const badgeText = new fabric.Text(slide.badge.toUpperCase(), {
+                fontSize: 20,
                 fontFamily: bFont,
                 fontWeight: '700',
                 fill: badgeTxtCol,
-                left: 80,
-                top: 80,
+                left: 96,
+                top: 92,
                 name: 'badge',
-                charSpacing: 80,
                 selectable: true,
                 hasControls: false
             });
 
+            const padX = 20;
+            const padY = 10;
+            const badgeW = (badgeText.width || 100) + padX * 2;
+            const badgeH = (badgeText.height || 24) + padY * 2;
+
             const badgeBg = new fabric.Rect({
-                left: 68,
-                top: 72,
-                width: (badgeText.width || 120) + 24,
-                height: (badgeText.height || 26) + 16,
+                left: 80,
+                top: 82,
+                width: badgeW,
+                height: badgeH,
                 fill: badgeBgCol,
-                rx: 8,
-                ry: 8,
-                selectable: false, evented: false
+                stroke: isDark ? 'rgba(255, 255, 255, 0.25)' : accCol + '40',
+                strokeWidth: 1.5,
+                rx: badgeH / 2,
+                ry: badgeH / 2,
+                selectable: false,
+                evented: false
             });
 
+            badgeBottom = 82 + badgeH;
             canvas.add(badgeBg, badgeText);
         }
 
-        // 4. Main Text Content
+        // 4. Main Text Content (Expert Typography)
         const isTitleSlide = slide.type === 'title';
         const isCTA = slide.type === 'cta';
         const hasUrdu = /[\u0600-\u06FF]/.test((slide.title || '') + (slide.body || '') + (slide.subtitle || ''));
         const actualHeadingFont = hasUrdu ? 'Noto Nastaliq Urdu' : hFont;
 
-        const titleFontSize = isTitleSlide ? 72 : (isCTA ? 64 : 56);
+        const titleFontSize = isTitleSlide ? 68 : (isCTA ? 60 : 52);
+        const titleTop = badgeBottom + 40;
+
         const title = new fabric.Textbox(slide.title || 'Slide Title', {
             left: 80,
-            top: isTitleSlide ? h * 0.22 : h * 0.2,
+            top: titleTop,
             fontSize: titleFontSize,
             fontFamily: actualHeadingFont,
-            fontWeight: hFont === 'Bebas Neue' ? 'normal' : 'bold',
+            fontWeight: hFont === 'Bebas Neue' ? 'normal' : '800',
             fill: txtCol,
             name: 'title',
             lineHeight: 1.2,
             width: w - 160,
-            splitByGrapheme: true,
             selectable: true
         });
         canvas.add(title);
@@ -246,93 +254,126 @@ export const SlideCanvas = forwardRef<SlideCanvasHandle>((_, ref) => {
         const bodyContent = isTitleSlide ? (slide.subtitle || '') : (slide.body || '');
         if (bodyContent) {
             const titleH = (title.height || 60) * (title.scaleY || 1);
-            const bodyTop = (title.top || 100) + titleH + 28;
+            const bodyTop = titleTop + titleH + 36;
+            const bodyFontSize = isTitleSlide ? 32 : 32;
+
             const body = new fabric.Textbox(bodyContent, {
                 left: 80,
                 top: bodyTop,
-                fontSize: isTitleSlide ? 28 : 26,
+                fontSize: bodyFontSize,
                 fontFamily: bFont,
-                fontWeight: 'normal',
+                fontWeight: '400',
                 fill: txtCol,
                 name: isTitleSlide ? 'subtitle' : 'body',
-                lineHeight: 1.6,
-                opacity: 0.85,
+                lineHeight: 1.55,
+                opacity: 0.88,
                 width: w - 160,
-                splitByGrapheme: true,
                 selectable: true
             });
             canvas.add(body);
         }
 
-        // 5. Swipe CTA (Title slide only)
+        // 5. Swipe Pill (Title Slide Only)
         if (isTitleSlide) {
-            const isDark = isColorDark(bgCol);
+            const pillW = 150;
+            const pillH = 46;
+            const pillLeft = w - 80 - pillW;
+            const pillTop = h - 130;
+
             const pillBg = new fabric.Rect({
-                left: w - 220,
-                top: h - 140,
-                width: 140,
-                height: 44,
+                left: pillLeft,
+                top: pillTop,
+                width: pillW,
+                height: pillH,
                 fill: accCol,
-                rx: 22,
-                ry: 22,
-                selectable: false, evented: false
+                rx: pillH / 2,
+                ry: pillH / 2,
+                selectable: false,
+                evented: false,
+                shadow: new fabric.Shadow({
+                    color: 'rgba(0,0,0,0.2)',
+                    blur: 12,
+                    offsetY: 4
+                })
             });
 
-            const swipeText = new fabric.Text('Swipe ➤', {
-                left: w - 200,
-                top: h - 130,
+            const swipeText = new fabric.Text('Swipe  ➔', {
+                left: pillLeft + 24,
+                top: pillTop + 13,
                 fontSize: 18,
                 fontFamily: bFont,
                 fontWeight: '700',
-                fill: isDark ? '#000000' : '#FFFFFF',
-                selectable: false, evented: false
+                fill: isColorDark(accCol) ? '#FFFFFF' : '#000000',
+                selectable: false,
+                evented: false
             });
 
             canvas.add(pillBg, swipeText);
         }
 
-        // 6. Counter (Content slides)
-        if (showCounter && slide.type === 'content') {
-            const circle = new fabric.Circle({
-                radius: 24,
-                fill: accCol,
-                left: w - 120,
-                top: 76,
-                selectable: false, evented: false
-            });
-            const numText = new fabric.Text(String(slideIdx), {
-                left: w - 108,
-                top: 84,
-                fontSize: 22,
+        // 6. Modern Slide Counter Pill (Content & CTA slides)
+        if (showCounter && !isTitleSlide) {
+            const totalSlides = slides.length || 6;
+            const counterText = `${String(slideIdx).padStart(2, '0')} / ${String(totalSlides).padStart(2, '0')}`;
+            const isDark = isColorDark(bgCol);
+
+            const counterLabel = new fabric.Text(counterText, {
+                fontSize: 18,
                 fontFamily: bFont,
-                fontWeight: '800',
-                fill: isColorDark(accCol) ? '#FFFFFF' : '#000000',
-                selectable: false, evented: false
+                fontWeight: '700',
+                fill: isDark ? 'rgba(255,255,255,0.75)' : 'rgba(0,0,0,0.6)',
+                selectable: false,
+                evented: false
             });
-            canvas.add(circle, numText);
+
+            const cW = (counterLabel.width || 60) + 24;
+            const cH = 36;
+            const cLeft = w - 80 - cW;
+            const cTop = 82;
+
+            const counterBg = new fabric.Rect({
+                left: cLeft,
+                top: cTop,
+                width: cW,
+                height: cH,
+                fill: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
+                rx: cH / 2,
+                ry: cH / 2,
+                selectable: false,
+                evented: false
+            });
+
+            counterLabel.set({
+                left: cLeft + 12,
+                top: cTop + 9
+            });
+
+            canvas.add(counterBg, counterLabel);
         }
 
-        // 7. Creator Branding
+        // 7. Creator Branding (Bottom Bar)
         if (showBranding) {
             const nameText = new fabric.Text(creatorName || 'Creator', {
                 left: 80,
-                top: h - 120,
+                top: h - 125,
                 fontSize: 22,
                 fontFamily: bFont,
                 fontWeight: '700',
                 fill: txtCol,
-                selectable: false, evented: false
+                selectable: false,
+                evented: false
             });
 
             const handleText = new fabric.Text(creatorHandle || '@handle', {
                 left: 80,
-                top: h - 92,
+                top: h - 96,
                 fontSize: 16,
                 fontFamily: bFont,
-                fontWeight: '400',
+                fontWeight: '500',
                 fill: txtCol,
                 opacity: 0.6,
-                selectable: false, evented: false
+                selectable: false,
+                evented: false
             });
 
             canvas.add(nameText, handleText);
@@ -469,8 +510,10 @@ export const SlideCanvas = forwardRef<SlideCanvasHandle>((_, ref) => {
                 <i className="fa-solid fa-chevron-left"></i>
             </button>
 
-            <div className="canvas-frame" ref={frameRef}>
-                <canvas ref={canvasElRef} id="slide-canvas" />
+            <div className="canvas-scaler-container" ref={scalerContainerRef}>
+                <div className="canvas-frame" ref={frameRef}>
+                    <canvas ref={canvasElRef} id="slide-canvas" />
+                </div>
             </div>
 
             <button
