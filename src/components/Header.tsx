@@ -40,9 +40,24 @@ export const Header: React.FC<HeaderProps> = ({ onExportPdf, onExportPng }) => {
                     className="header-btn"
                     id="btn-api-settings"
                     onClick={() => setIsApiKeyModalOpen(true)}
-                    title="Configure Claude API Key"
+                    title="Configure Free AI API (Google Gemini, Groq, Claude)"
+                    style={{ position: 'relative' }}
                 >
-                    <i className="fa-solid fa-key"></i> API Key
+                    <i className="fa-solid fa-wand-magic-sparkles" style={{ color: '#6366f1' }}></i> AI Settings
+                    <span
+                        style={{
+                            fontSize: '9px',
+                            fontWeight: 800,
+                            padding: '1px 5px',
+                            borderRadius: '999px',
+                            background: '#ECFDF5',
+                            color: '#059669',
+                            border: '1px solid #A7F3D0',
+                            marginLeft: '4px'
+                        }}
+                    >
+                        FREE
+                    </span>
                 </button>
                 <button
                     className="header-btn accent-outline"

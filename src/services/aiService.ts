@@ -1,4 +1,5 @@
 import type { Slide } from '../types/carousel';
+import { StorageService } from './storageService';
 
 declare global {
     interface Window {
@@ -11,113 +12,444 @@ declare global {
 }
 
 /**
- * Smart Local AI Generator (instant, reliable fallback generator that synthesizes tailored content)
+ * System prompt tailored for viral LinkedIn and Instagram carousels
  */
-function generateSmartFallbackSlides(topic: string, tone: string, slideCount: number): Slide[] {
+function buildViralPrompt(topic: string, tone: string, slideCount: number): string {
+    const toneInstruction =
+        tone === 'hinglish'
+            ? 'Language: Casual Hinglish / Roman Urdu (e.g. "Ye 5 tareeqay aapka waqt aur paisa dono bachayeinge", "Daily consistency se real momentum banta hai"). Friendly, engaging, practical.'
+            : tone === 'bilingual'
+            ? 'Language: English headings with elegant Urdu script subtitles (e.g. "کامیابی کا راز • Secret of Success").'
+            : 'Language: English. Professional, high-status, punchy, like top LinkedIn creators (Justin Welsh, Sahil Bloom).';
+
+    return `You are a world-class social media viral carousel copywriter specializing in high-retention LinkedIn and Instagram carousels.
+Topic: "${topic}"
+Slide Count: Exactly ${slideCount} slides.
+${toneInstruction}
+
+CRITICAL CAROUSEL STRUCTURE RULES:
+1. Slide 1 (Title / Hook): Must be an irresistible, scroll-stopping hook. Bold headline, compelling subtitle explaining the transformation/value, and a crisp badge (e.g. "FREE BLUEPRINT", "MUST-READ", "2026 GUIDE", "ACTIONABLE FRAMEWORK").
+2. Slides 2 to ${slideCount - 1} (Content / Value): Each slide must give ONE specific, non-obvious, actionable insight or step.
+   - Title: Short, punchy (3 to 6 words).
+   - Body: 1-2 powerful sentences or 2 concise bullet points (MAXIMUM 150 characters total). Avoid fluff.
+   - Badge: Step indicator or thematic tag (e.g. "STEP 01", "THE SHIFT", "CRITICAL MISTAKE", "SECRET HACK", "ROI MULTIPLIER").
+3. Slide ${slideCount} (Outro / CTA): High-conversion closing slide. Strong call to action encouraging the reader to save, repost, comment, or follow.
+
+OUTPUT REQUIREMENT:
+Output ONLY a valid JSON array of exactly ${slideCount} objects. No markdown backticks, no introduction, no outro.
+JSON Schema:
+[
+  {
+    "slide_number": 1,
+    "type": "title",
+    "title": "...",
+    "subtitle": "...",
+    "badge": "..."
+  },
+  {
+    "slide_number": 2,
+    "type": "content",
+    "title": "...",
+    "body": "...",
+    "badge": "..."
+  },
+  ...
+  {
+    "slide_number": ${slideCount},
+    "type": "cta",
+    "title": "...",
+    "body": "...",
+    "badge": "..."
+  }
+]`;
+}
+
+/**
+ * Clean & Parse raw LLM output into Slide[]
+ */
+function parseSlidesJson(rawText: string, expectedCount: number): Slide[] {
+    let clean = rawText.trim();
+    if (clean.startsWith('```')) {
+        clean = clean.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
+    }
+    const startIdx = clean.indexOf('[');
+    const endIdx = clean.lastIndexOf(']');
+    if (startIdx !== -1 && endIdx !== -1) {
+        clean = clean.substring(startIdx, endIdx + 1);
+    }
+    const parsed: Slide[] = JSON.parse(clean);
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+        throw new Error('Invalid JSON format returned by AI');
+    }
+    return parsed.slice(0, expectedCount);
+}
+
+/**
+ * Google Gemini API (100% Free tier from Google AI Studio)
+ * Supports gemini-2.0-flash / gemini-1.5-flash with direct browser fetch & structured JSON
+ */
+async function callGeminiApi(
+    topic: string,
+    tone: string,
+    slideCount: number,
+    apiKey: string
+): Promise<Slide[]> {
+    const prompt = buildViralPrompt(topic, tone, slideCount);
+    const models = ['gemini-3.6-flash', 'gemini-2.5-flash', 'gemini-2.0-flash'];
+    let lastError: any = null;
+
+    for (const model of models) {
+        try {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey.trim()}`;
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    contents: [
+                        {
+                            role: 'user',
+                            parts: [{ text: prompt }]
+                        }
+                    ],
+                    generationConfig: {
+                        responseMimeType: 'application/json',
+                        temperature: 0.7
+                    }
+                })
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                if (text) {
+                    return parseSlidesJson(text, slideCount);
+                }
+            } else {
+                const errJson = await res.json().catch(() => ({}));
+                lastError = new Error(errJson?.error?.message || `Gemini ${model} Error ${res.status}`);
+            }
+        } catch (err: any) {
+            lastError = err;
+        }
+    }
+
+    throw lastError || new Error('Google Gemini generation failed with all available models.');
+}
+
+/**
+ * Groq API (100% Free tier from console.groq.com - Llama 3.3 70B Versatile)
+ */
+async function callGroqApi(
+    topic: string,
+    tone: string,
+    slideCount: number,
+    apiKey: string
+): Promise<Slide[]> {
+    const prompt = buildViralPrompt(topic, tone, slideCount);
+    const url = 'https://api.groq.com/openai/v1/chat/completions';
+    const models = ['openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'qwen/qwen3.8-27b', 'groq/compound'];
+    let lastError: any = null;
+
+    for (const model of models) {
+        try {
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${apiKey.trim()}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model,
+                    messages: [
+                        {
+                            role: 'system',
+                            content: 'You are a world-class social media carousel copywriter. You must output ONLY a valid JSON array of objects. No markdown backticks, no intro, no outro.'
+                        },
+                        {
+                            role: 'user',
+                            content: prompt
+                        }
+                    ],
+                    temperature: 0.7
+                })
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                const text = data?.choices?.[0]?.message?.content || '';
+                if (text) {
+                    return parseSlidesJson(text, slideCount);
+                }
+            } else {
+                const errJson = await res.json().catch(() => ({}));
+                lastError = new Error(errJson?.error?.message || `Groq ${model} Error ${res.status}`);
+            }
+        } catch (err: any) {
+            lastError = err;
+        }
+    }
+
+    throw lastError || new Error('Groq generation failed with all available models.');
+}
+
+/**
+ * Anthropic Claude API (Direct client call)
+ */
+async function callClaudeApi(
+    topic: string,
+    tone: string,
+    slideCount: number,
+    apiKey: string
+): Promise<Slide[]> {
+    const prompt = buildViralPrompt(topic, tone, slideCount);
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+            'x-api-key': apiKey.trim(),
+            'anthropic-version': '2023-06-01',
+            'content-type': 'application/json',
+            'dangerously-allow-browser': 'true'
+        },
+        body: JSON.stringify({
+            model: 'claude-3-5-sonnet-20241022',
+            max_tokens: 2000,
+            messages: [{ role: 'user', content: prompt }]
+        })
+    });
+
+    if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        const msg = errJson?.error?.message || `Claude HTTP Error ${res.status}`;
+        throw new Error(`Claude Error: ${msg}`);
+    }
+
+    const data = await res.json();
+    const text = data?.content?.[0]?.text || '';
+    return parseSlidesJson(text, slideCount);
+}
+
+/**
+ * Intelligent Dynamic Niche-Aware Generator
+ * High-converting, topic-customized slides even without an API key or offline!
+ */
+function generateDynamicNicheSlides(topic: string, tone: string, slideCount: number): Slide[] {
     const cleanTopic = topic.trim().replace(/^["']|["']$/g, '');
+    const lower = cleanTopic.toLowerCase();
     const isUrdu = tone === 'bilingual';
     const isHinglish = tone === 'hinglish';
 
+    // Identify topic niche
+    let nicheTips: Array<{ enTitle: string; enBody: string; hnTitle: string; hnBody: string; badge: string }> = [];
+    let defaultHook = `Mastering ${cleanTopic}`;
+    let defaultSub = `A proven blueprint to achieve 10x better results in less time.`;
+    let hookBadge = 'GROWTH BLUEPRINT';
+
+    if (lower.includes('ai') || lower.includes('gpt') || lower.includes('prompt') || lower.includes('tool') || lower.includes('bot')) {
+        hookBadge = 'AI MASTERCLASS';
+        defaultHook = `Unlocking ${cleanTopic}`;
+        defaultSub = `Stop wasting hours on manual tasks. Here is the modern AI workflow.`;
+        nicheTips = [
+            {
+                enTitle: 'Automate High-Repetition Tasks',
+                enBody: 'Identify workflows you do daily. Delegate data sorting, summarizing, and drafts to AI models.',
+                hnTitle: 'Bar Bar Hone Wale Kaam Automate Karein',
+                hnBody: 'Jo kaam roz ghanton letay hain unko AI tools se 5 minute mein niptayein.',
+                badge: 'PROVEN SYSTEM'
+            },
+            {
+                enTitle: 'Master Context-Rich Prompting',
+                enBody: 'Generic prompts yield generic answers. Give the AI clear roles, constraints, examples, and target audience.',
+                hnTitle: 'Sahi Prompting Ka Tariqa Seekhein',
+                hnBody: 'AI ko exact instructions aur examples dein taake quality professional level ki aye.',
+                badge: 'PRO HACK'
+            },
+            {
+                enTitle: 'Build Custom AI Workflows',
+                enBody: 'Do not rely on a single chatbot. Chain specialized tools together to build an unfair competitive advantage.',
+                hnTitle: 'Apna AI Workflow Banayein',
+                hnBody: 'Sirf ek tool par depend na karein. Best tools ko combine kar ke fast results lein.',
+                badge: 'LEVERAGE'
+            },
+            {
+                enTitle: 'Verify & Polish With Human Taste',
+                enBody: 'AI provides the 80% baseline; your discernment and domain expertise provide the 20% magic that sells.',
+                hnTitle: 'Apna Personal Touch Shamil Karein',
+                hnBody: 'AI se base tayar karein aur apna tajruba daal kar content ko premium banayein.',
+                badge: 'QUALITY CONTROL'
+            },
+            {
+                enTitle: 'Stay Updated With Weekly Shifts',
+                enBody: 'The AI landscape evolves every 7 days. Dedicate 20 minutes on weekends to test fresh capabilities.',
+                hnTitle: 'Market Trends Par Nazar Rakhein',
+                hnBody: 'AI tezi se badal raha hai. Har hafte 20 minute naye updates ko explore karein.',
+                badge: 'FUTURE PROOF'
+            }
+        ];
+    } else if (lower.includes('freelanc') || lower.includes('client') || lower.includes('upwork') || lower.includes('fiverr') || lower.includes('agency')) {
+        hookBadge = 'HIGH TICKET GUIDE';
+        defaultHook = `${cleanTopic}: The High-Income Blueprint`;
+        defaultSub = `How top freelancers charge premium rates without bidding wars.`;
+        nicheTips = [
+            {
+                enTitle: 'Position as a Partner, Not a Worker',
+                enBody: 'Clients do not buy hours; they buy business outcomes. Speak to their revenue, growth, and headaches.',
+                hnTitle: 'Worker Nahi, Solution Provider Banein',
+                hnBody: 'Clients ko ghantay nahi, balkay business ka solution aur profit chahiye hota hai.',
+                badge: 'POSITIONING'
+            },
+            {
+                enTitle: 'Build a Proof-Driven Portfolio',
+                enBody: 'Replace generic case studies with quantifiable before-and-after transformations and client metrics.',
+                hnTitle: 'Results-Oriented Portfolio Banayein',
+                hnBody: 'Sirf design ya code na dikhayein, batayein ke aapke kaam se client ko kya faida hua.',
+                badge: 'PORTFOLIO'
+            },
+            {
+                enTitle: 'Refine Your Cold Outreach Engine',
+                enBody: 'Send hyper-personalized video audits or teardowns. 10 tailored pitches crush 100 generic copy-pastes.',
+                hnTitle: 'Personalized Outreach Karein',
+                hnBody: 'Copy-paste messages se clients nahi miltay. Custom audit ya video bhej kar attention lein.',
+                badge: 'CLIENT ACQUISITION'
+            },
+            {
+                enTitle: 'Transition to Value-Based Retainers',
+                enBody: 'Avoid feast-and-famine cycles. Package monthly maintenance and growth advisory into sticky retainers.',
+                hnTitle: 'Monthly Retainers Par Shuru Karein',
+                hnBody: 'Har mahinay naye client dhoondne ki bajaye purane clients ko ongoing support offer karein.',
+                badge: 'RETAINERS'
+            },
+            {
+                enTitle: 'Over-Deliver On First Milestones',
+                enBody: 'Early impressions forge lifelong trust. Finish 24 hours early and include an unrequested bonus asset.',
+                hnTitle: 'Pehli Delivery Mein Dil Jeet Lein',
+                hnBody: 'Time se pehle kaam deliver karein aur chota sa extra bonus add karein taake repeat work milay.',
+                badge: 'REPEAT SALES'
+            }
+        ];
+    } else if (lower.includes('linkedin') || lower.includes('brand') || lower.includes('growth') || lower.includes('content') || lower.includes('follower')) {
+        hookBadge = 'VIRAL FORMULA';
+        defaultHook = `${cleanTopic}: Zero To 100k Reach`;
+        defaultSub = `The exact content playbook used by the top 1% of creators.`;
+        nicheTips = [
+            {
+                enTitle: 'The 3-Second Hook Rule',
+                enBody: '80% of readers bounce on the headline. Use curiosity gaps, bold numbers, and contrarian perspectives.',
+                hnTitle: '3-Second Hook Ka Kamal',
+                hnBody: 'Pehli line aisi ho jo scroll rokay. Numbers aur curiosity se log pura swipe karte hain.',
+                badge: 'RETENTION'
+            },
+            {
+                enTitle: 'Give Away Your Best Secrets Free',
+                enBody: 'Hoarding insights kills reach. Share actionable breakdowns so readers immediately think: "Imagine their paid work!"',
+                hnTitle: 'Best Secrets Khul Kar Share Karein',
+                hnBody: 'Valuable insights free dein taake log aapki authority aur expertise ko foran pehchaan sakein.',
+                badge: 'AUTHORITY'
+            },
+            {
+                enTitle: 'Optimize Visual Formatting',
+                enBody: 'People scan before they read. Use short punchy lines, white space, and bold lead-ins for mobile screens.',
+                hnTitle: 'Mobile-Friendly Formatting',
+                hnBody: 'Barray paragraphs mat likhein. Choti lines aur bullets mobile users ke liye behtareen hain.',
+                badge: 'READABILITY'
+            },
+            {
+                enTitle: 'Engage 15 Mins Before & After Posting',
+                enBody: 'Algorithms reward active community members. Leave insightful comments on 10 top creators in your niche daily.',
+                hnTitle: 'Posting Ke Sath Engagement Zaroori Hai',
+                hnBody: 'Post karne ke sath sath doosre creators ki posts par thoughtful comments zaroor karein.',
+                badge: 'ALGORITHM'
+            },
+            {
+                enTitle: 'Double Down On Winning Formats',
+                enBody: 'Study your top 10% performing posts. Repurpose winning hooks and frameworks into fresh carousel designs.',
+                hnTitle: 'Top Posts Ko Repurpose Karein',
+                hnBody: 'Jo content pehle viral hua, usko naye andaz aur carousels mein dobara present karein.',
+                badge: 'SCALING'
+            }
+        ];
+    } else {
+        // General High-Impact Framework
+        hookBadge = 'ACTIONABLE BLUEPRINT';
+        defaultHook = `Cracking ${cleanTopic}`;
+        defaultSub = `5 Core frameworks to accelerate your trajectory and avoid painful roadblocks.`;
+        nicheTips = [
+            {
+                enTitle: 'Focus On High-Leverage Activities',
+                enBody: '80% of breakthrough results stem from 20% of core actions. Relentlessly eliminate busywork.',
+                hnTitle: 'Sirf High-Impact Kaam Karein',
+                hnBody: 'Har kaam zaroori nahi hota. Pehle un cheezon par focus karein jo sab se bara result deti hain.',
+                badge: 'LEVERAGE'
+            },
+            {
+                enTitle: 'Build Frictionless Daily Rituals',
+                enBody: 'Motivation is fleeting; systems are permanent. Design routines that make consistency automatic.',
+                hnTitle: 'Daily Habits Ka Mazboot System',
+                hnBody: 'Jazba khatam ho sakta hai lekin daily routine hamesha sath deti hai. Consistency hi key hai.',
+                badge: 'SYSTEMS'
+            },
+            {
+                enTitle: 'Iterate Faster Than The Competition',
+                enBody: 'Perfectionism is disguised fear. Launch the imperfect draft, gather real data, and polish dynamically.',
+                hnTitle: 'Ghaltiyon Se Seekh Kar Fast Agay Barhein',
+                hnBody: 'Perfect time ka intezar mat karein. Shuru karein aur har hafte apne kaam ko behtar banayein.',
+                badge: 'SPEED'
+            },
+            {
+                enTitle: 'Leverage Compounding Growth',
+                enBody: 'Tiny 1% improvements everyday yield massive exponential leaps over a 12-month horizon.',
+                hnTitle: 'Rozana 1% Behtar Banein',
+                hnBody: 'Choti choti daily progress saal ke aakhir mein aik bohat bara transformational result banti hai.',
+                badge: 'COMPOUNDING'
+            },
+            {
+                enTitle: 'Protect Your Energy & Focus',
+                enBody: 'Burnout destroys momentum. Protect 2 hours of uninterrupted deep work before checking notifications.',
+                hnTitle: 'Deep Work Aur Focus Ko Protect Karein',
+                hnBody: 'Distractions se bachein aur din ke pehle 2 ghantay sirf sab se zaroori kaam ko dein.',
+                badge: 'PEAK FOCUS'
+            }
+        ];
+    }
+
     const slides: Slide[] = [];
 
-    // 1. Hook / Title Slide
-    let titleText = `Mastering ${cleanTopic}`;
-    let subtitleText = `5 Proven principles to fast-track your growth and get results faster.`;
-    let badgeText = 'GROWTH BLUEPRINT';
-
+    // Title Slide
+    let finalTitle = defaultHook;
+    let finalSub = defaultSub;
     if (isHinglish) {
-        titleText = `${cleanTopic}: Asal Kamyabi Ka Raaz`;
-        subtitleText = `Ye 5 baatein aapka waqt aur mehnat dono bachayeingi. Swipe karein!`;
-        badgeText = 'MUST READ GUIDE';
+        finalTitle = `${cleanTopic}: Kamyabi Ka Secret`;
+        finalSub = `Ye actionable baatein aapko 10x aage le jayengi. Swipe karein!`;
     } else if (isUrdu) {
-        titleText = `${cleanTopic} • کامیابی کا طریقہ`;
-        subtitleText = `Learn the exact framework used by top industry leaders to achieve massive outcomes.`;
-        badgeText = 'EXCLUSIVE GUIDE';
+        finalTitle = `${cleanTopic} • کامیابی کا طریقہ`;
+        finalSub = `Proven principles used by top industry leaders to achieve extraordinary results.`;
     }
 
     slides.push({
         slide_number: 1,
         type: 'title',
-        title: titleText,
-        subtitle: subtitleText,
-        badge: badgeText
+        title: finalTitle,
+        subtitle: finalSub,
+        badge: hookBadge
     });
 
     // Middle Content Slides
-    const tips = [
-        {
-            enTitle: 'Start With Clear Fundamentals',
-            enBody: 'Before scaling or speeding up, nail the core foundation. Consistency on the basics beats occasional genius.',
-            hnTitle: 'Pehle Buniyad Mazboot Karain',
-            hnBody: 'Jaldbaazi ki bajaye basics ko samjhein. Daily consistency se hi real momentum banta hai.',
-            badge: 'STEP 1'
-        },
-        {
-            enTitle: 'Focus On High-Leverage Actions',
-            enBody: '80% of your progress comes from 20% of your efforts. Eliminate distractions and prioritize what moves the needle.',
-            hnTitle: 'Sirf Aham Kaamon Par Focus',
-            hnBody: 'Har cheez zaroori nahi hoti. Un 20% kaamon ko pehle karein jo 80% results dete hain.',
-            badge: 'STEP 2'
-        },
-        {
-            enTitle: 'Embrace Feedback & Rapid Iteration',
-            enBody: 'Do not wait for absolute perfection. Launch early, collect authentic feedback, and refine relentlessly.',
-            hnTitle: 'Ghaltiyon Se Seekhein Aur Agay Barhein',
-            hnBody: 'Perfect waqt ka intezar mat karein. Shuru karein, feedback lein aur har hafte behtar banein.',
-            badge: 'STEP 3'
-        },
-        {
-            enTitle: 'Build Scalable Systems & Habits',
-            enBody: 'Motivation is fleeting; robust daily rituals are sustainable. Document your workflows to scale your impact.',
-            hnTitle: 'Rozana Ke Habits Banayein',
-            hnBody: 'Jazba khatam ho sakta hai lekin daily routine hamesha sath deti hai. Apne kaam ko organize karein.',
-            badge: 'STEP 4'
-        },
-        {
-            enTitle: 'Protect Your Energy & Longevity',
-            enBody: 'Burnout is the enemy of excellence. Take strategic rest so you can sustain high-level performance over years.',
-            hnTitle: 'Mental Peace Aur Energy Bachayein',
-            hnBody: 'Hustle ke sath rest bhi zaroori hai taake aap lambe arsay tak top level par perform kar sakein.',
-            badge: 'STEP 5'
-        },
-        {
-            enTitle: 'Surround Yourself With Winners',
-            enBody: 'Your peer group shapes your ceiling. Connect with people who inspire, challenge, and elevate your vision.',
-            hnTitle: 'Behtareen Logon Ke Sath Rahein',
-            hnBody: 'Aapki company aapka mustaqbil decide karti hai. Aise logon se judain jo seekhne ka shauq rakhte hon.',
-            badge: 'STEP 6'
-        },
-        {
-            enTitle: 'Measure What Truly Matters',
-            enBody: 'Vanity metrics deceive. Track real outcomes, revenue, and relationship depth to gauge authentic growth.',
-            hnTitle: 'Sahi Results Ko Track Karein',
-            hnBody: 'Sirf likes aur views nahi, balkay real value aur growth par nazar rakhein.',
-            badge: 'STEP 7'
-        },
-        {
-            enTitle: 'Stay Curious & Never Stop Learning',
-            enBody: 'The market evolves constantly. Dedicate 30 minutes daily to reading, upskilling, and discovering new tools.',
-            hnTitle: 'Hamesha Nayi Cheezein Seekhein',
-            hnBody: 'Market tezi se badal rahi hai. Rozana kuch naya seekhne ki aadat aapko aage rakhegi.',
-            badge: 'STEP 8'
-        }
-    ];
-
-    const contentCount = Math.max(slideCount - 2, 2);
-    for (let i = 0; i < contentCount; i++) {
-        const tip = tips[i % tips.length];
+    const neededContent = Math.max(slideCount - 2, 2);
+    for (let i = 0; i < neededContent; i++) {
+        const item = nicheTips[i % nicheTips.length];
         slides.push({
             slide_number: slides.length + 1,
             type: 'content',
-            title: isHinglish ? tip.hnTitle : tip.enTitle,
-            body: isHinglish ? tip.hnBody : tip.enBody,
-            badge: tip.badge
+            title: isHinglish ? item.hnTitle : item.enTitle,
+            body: isHinglish ? item.hnBody : item.enBody,
+            badge: item.badge
         });
     }
 
-    // CTA Outro Slide
-    let ctaTitle = 'Found This Insightful?';
-    let ctaBody = 'Repost to help your network grow.\nFollow for daily actionable growth strategies!';
+    // CTA Slide
+    let ctaTitle = 'Found This Valuable?';
+    let ctaBody = 'Repost to help someone in your network.\nSave for later and follow for daily actionable guides!';
     let ctaBadge = 'SAVE & SHARE';
 
     if (isHinglish) {
@@ -143,97 +475,142 @@ function generateSmartFallbackSlides(topic: string, tone: string, slideCount: nu
 
 export const AIService = {
     /**
-     * Primary Generator: Free AI (via Puter) -> Custom Claude Key (if provided) -> Smart Fallback Engine
+     * Main Entrypoint for Carousel Generation
+     * Priority: Selected Provider Key -> Gemini Free Key -> Groq Free Key -> Claude Key -> Dynamic Niche Engine
      */
     async generateCarouselContent(
         topic: string,
         tone: string,
         slideCount: number = 6,
-        customApiKey?: string
+        overrideApiKey?: string
     ): Promise<Slide[]> {
         if (!topic.trim()) {
             throw new Error('Please enter a carousel topic or title.');
         }
 
-        const systemPrompt = `You are a world-class social media strategist specializing in viral LinkedIn and Instagram carousels.
-Generate a high-converting carousel with exactly ${slideCount} slides for the topic: "${topic}".
-Tone preference: ${tone} (english: professional LinkedIn; hinglish: casual Roman Urdu/Hindi; bilingual: English with Urdu script touches).
+        const geminiKey = StorageService.getGeminiApiKey();
+        const groqKey = StorageService.getGroqApiKey();
+        const claudeKey = StorageService.getApiKey();
+        const providerChoice = StorageService.getAiProvider();
 
-Carousel Structure:
-- Slide 1: High-impact Title Slide (Catchy headline, hook, subtitle).
-- Slide 2 to ${slideCount - 1}: Content Slides (Actionable value, steps, tips, max 160 characters per body).
-- Slide ${slideCount}: Strong Call To Action Slide (Encouraging save, repost, comment).
+        console.log(`[AIService] Generating carousel with provider choice: ${providerChoice}`);
 
-You MUST output ONLY a valid raw JSON array of ${slideCount} objects with keys: "slide_number", "type" ("title"|"content"|"cta"), "title", "body", "subtitle", "badge". Do NOT include markdown blocks or any extra text.`;
-
-        // 1. If user provided their own custom Anthropic API key, use direct Claude
-        if (customApiKey && customApiKey.trim().startsWith('sk-ant-')) {
+        // 1. If overrideApiKey or explicit choice is Google Gemini
+        if ((providerChoice === 'gemini' && geminiKey) || (overrideApiKey && overrideApiKey.startsWith('AIzaSy'))) {
+            const key = overrideApiKey?.startsWith('AIzaSy') ? overrideApiKey : geminiKey;
             try {
-                const response = await fetch('https://api.anthropic.com/v1/messages', {
+                console.log('[AIService] Calling Google Gemini 2.0 Flash (Free API)...');
+                const slides = await callGeminiApi(topic, tone, slideCount, key);
+                if (slides && slides.length >= 3) return slides;
+            } catch (err: any) {
+                console.error('[AIService] Gemini API error:', err.message);
+                throw new Error(`Google Gemini Error: ${err.message}`);
+            }
+        }
+
+        // 2. If choice is Groq
+        if ((providerChoice === 'groq' && groqKey) || (overrideApiKey && overrideApiKey.startsWith('gsk_'))) {
+            const key = overrideApiKey?.startsWith('gsk_') ? overrideApiKey : groqKey;
+            try {
+                console.log('[AIService] Calling Groq Cloud (Free Llama 3.3 70B)...');
+                const slides = await callGroqApi(topic, tone, slideCount, key);
+                if (slides && slides.length >= 3) return slides;
+            } catch (err: any) {
+                console.error('[AIService] Groq API error:', err.message);
+                throw new Error(`Groq Error: ${err.message}`);
+            }
+        }
+
+        // 3. If choice is Claude
+        if ((providerChoice === 'claude' && claudeKey) || (overrideApiKey && overrideApiKey.startsWith('sk-ant-'))) {
+            const key = overrideApiKey?.startsWith('sk-ant-') ? overrideApiKey : claudeKey;
+            try {
+                console.log('[AIService] Calling Claude 3.5 Sonnet...');
+                const slides = await callClaudeApi(topic, tone, slideCount, key);
+                if (slides && slides.length >= 3) return slides;
+            } catch (err: any) {
+                console.error('[AIService] Claude API error:', err.message);
+                throw new Error(`Claude Error: ${err.message}`);
+            }
+        }
+
+        // 4. Auto-detect any configured free key if provider was not explicitly locked
+        if (geminiKey) {
+            try {
+                console.log('[AIService] Auto-detect: using stored Gemini Key...');
+                return await callGeminiApi(topic, tone, slideCount, geminiKey);
+            } catch (e) {
+                console.warn('Auto Gemini attempt failed:', e);
+            }
+        }
+
+        if (groqKey) {
+            try {
+                console.log('[AIService] Auto-detect: using stored Groq Key...');
+                return await callGroqApi(topic, tone, slideCount, groqKey);
+            } catch (e) {
+                console.warn('Auto Groq attempt failed:', e);
+            }
+        }
+
+        // 5. Dynamic Smart Niche Engine (Instant, high-quality, topic-relevant trending content)
+        console.log('[AIService] Generating trending slides via Dynamic Niche Engine...');
+        return generateDynamicNicheSlides(topic, tone, slideCount);
+    },
+
+    /**
+     * Test an API Key connection directly
+     */
+    async testConnection(provider: 'gemini' | 'groq' | 'claude', key: string): Promise<boolean> {
+        if (!key.trim()) return false;
+        try {
+            if (provider === 'gemini') {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${key.trim()}`;
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ role: 'user', parts: [{ text: 'OK' }] }]
+                    })
+                });
+                return res.ok;
+            }
+            if (provider === 'groq') {
+                const url = 'https://api.groq.com/openai/v1/chat/completions';
+                const res = await fetch(url, {
                     method: 'POST',
                     headers: {
-                        'x-api-key': customApiKey.trim(),
+                        'Authorization': `Bearer ${key.trim()}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model: 'openai/gpt-oss-120b',
+                        messages: [{ role: 'user', content: 'Say OK' }],
+                        max_tokens: 5
+                    })
+                });
+                return res.ok;
+            }
+            if (provider === 'claude') {
+                const res = await fetch('https://api.anthropic.com/v1/messages', {
+                    method: 'POST',
+                    headers: {
+                        'x-api-key': key.trim(),
                         'anthropic-version': '2023-06-01',
                         'content-type': 'application/json',
                         'dangerously-allow-browser': 'true'
                     },
                     body: JSON.stringify({
                         model: 'claude-3-5-sonnet-20241022',
-                        max_tokens: 2000,
-                        messages: [{ role: 'user', content: systemPrompt }]
+                        max_tokens: 10,
+                        messages: [{ role: 'user', content: 'Say OK' }]
                     })
                 });
-
-                if (response.ok) {
-                    const data = await response.json();
-                    let text = data.content?.[0]?.text?.trim() || '';
-                    if (text.startsWith('```')) {
-                        text = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
-                    }
-                    const parsed: Slide[] = JSON.parse(text);
-                    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-                }
-            } catch (err) {
-                console.warn('Custom Claude key call failed, falling back to free AI engine:', err);
+                return res.ok;
             }
+            return false;
+        } catch (e) {
+            return false;
         }
-
-        // 2. Free Built-in AI via Puter.js in Browser
-        if (typeof window !== 'undefined' && window.puter?.ai?.chat) {
-            try {
-                const response = await window.puter.ai.chat(
-                    systemPrompt + '\n\nOutput only valid JSON array.',
-                    { model: 'gpt-4o-mini' }
-                );
-
-                let text = '';
-                if (typeof response === 'string') text = response;
-                else if (response?.message?.content) text = response.message.content;
-                else if (response?.text) text = response.text;
-
-                if (text) {
-                    text = text.trim();
-                    if (text.startsWith('```')) {
-                        text = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
-                    }
-                    // Find JSON array bounds
-                    const startIdx = text.indexOf('[');
-                    const endIdx = text.lastIndexOf(']');
-                    if (startIdx !== -1 && endIdx !== -1) {
-                        text = text.substring(startIdx, endIdx + 1);
-                    }
-                    const parsed: Slide[] = JSON.parse(text);
-                    if (Array.isArray(parsed) && parsed.length >= 3) {
-                        return parsed;
-                    }
-                }
-            } catch (puterErr) {
-                console.warn('Puter.js free AI attempt failed, using smart local generator:', puterErr);
-            }
-        }
-
-        // 3. Guaranteed High-Quality Smart Engine Fallback
-        // Synthesizes perfectly crafted copy tailored to the user's specific prompt
-        return generateSmartFallbackSlides(topic, tone, slideCount);
     }
 };
