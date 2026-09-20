@@ -23,6 +23,9 @@ export const SlideCanvas = forwardRef<SlideCanvasHandle>((_, ref) => {
         customTextColor,
         customAccentColor,
         customBgGradient,
+        customBgImage,
+        bgOverlayOpacity,
+        bgOverlayColor,
         headingFont,
         bodyFont,
         showDecorations,
@@ -101,7 +104,7 @@ export const SlideCanvas = forwardRef<SlideCanvasHandle>((_, ref) => {
     }, [platform]);
 
     // Draw full slide onto a given canvas
-    const drawSlide = useCallback((canvas: fabric.Canvas, slide: Slide, slideIdx: number) => {
+    const drawSlide = useCallback(async (canvas: fabric.Canvas, slide: Slide, slideIdx: number) => {
         if (!slide) return;
 
         canvas.clear();
@@ -109,31 +112,84 @@ export const SlideCanvas = forwardRef<SlideCanvasHandle>((_, ref) => {
         const h = canvas.getHeight();
         const tpl = getTemplate();
         const bgCol = getBgColor();
-        const txtCol = getTextColor();
+        const activeBgImage = slide.bgImage || customBgImage;
+        const activeOverlayOpacity = slide.bgOverlayOpacity !== undefined ? slide.bgOverlayOpacity : bgOverlayOpacity;
+        const isDark = activeBgImage ? true : isColorDark(bgCol);
+        const txtCol = customTextColor || (activeBgImage ? '#FFFFFF' : getTemplate().textColor || '#111827');
         const accCol = getAccentColor();
         const hFont = getHeadingFont();
         const bFont = getBodyFont();
 
-        // 1. Background (Gradient or solid)
-        const activeGrad = customBgGradient || tpl.bgGradient;
-        if (activeGrad && !customBgColor) {
-            const grad = new fabric.Gradient({
-                type: 'linear',
-                coords: { x1: 0, y1: 0, x2: w, y2: h },
-                colorStops: [
-                    { offset: 0, color: activeGrad[0] },
-                    { offset: 1, color: activeGrad[1] }
-                ]
+        // 1. Background (Image, Gradient or solid)
+        if (activeBgImage) {
+            canvas.setBackgroundColor('#0B0F19', () => canvas.renderAll());
+            await new Promise<void>((resolve) => {
+                let resolved = false;
+                const timer = setTimeout(() => {
+                    if (!resolved) {
+                        resolved = true;
+                        resolve();
+                    }
+                }, 3500);
+
+                fabric.Image.fromURL(
+                    activeBgImage,
+                    (img) => {
+                        if (resolved) return;
+                        resolved = true;
+                        clearTimeout(timer);
+                        if (img && img.width && img.height) {
+                            const scale = Math.max(w / img.width, h / img.height);
+                            img.set({
+                                scaleX: scale,
+                                scaleY: scale,
+                                originX: 'center',
+                                originY: 'center',
+                                left: w / 2,
+                                top: h / 2,
+                                selectable: false,
+                                evented: false
+                            });
+                            canvas.add(img);
+
+                            // Dark overlay dimmer rectangle for 100% crisp typography
+                            const overlay = new fabric.Rect({
+                                left: 0,
+                                top: 0,
+                                width: w,
+                                height: h,
+                                fill: bgOverlayColor || '#000000',
+                                opacity: activeOverlayOpacity !== undefined ? activeOverlayOpacity : 0.65,
+                                selectable: false,
+                                evented: false
+                            });
+                            canvas.add(overlay);
+                        }
+                        resolve();
+                    },
+                    { crossOrigin: 'anonymous' }
+                );
             });
-            canvas.setBackgroundColor(grad, () => canvas.renderAll());
         } else {
-            canvas.setBackgroundColor(bgCol, () => canvas.renderAll());
+            const activeGrad = customBgGradient || tpl.bgGradient;
+            if (activeGrad && !customBgColor) {
+                const grad = new fabric.Gradient({
+                    type: 'linear',
+                    coords: { x1: 0, y1: 0, x2: w, y2: h },
+                    colorStops: [
+                        { offset: 0, color: activeGrad[0] },
+                        { offset: 1, color: activeGrad[1] }
+                    ]
+                });
+                canvas.setBackgroundColor(grad, () => canvas.renderAll());
+            } else {
+                canvas.setBackgroundColor(bgCol, () => canvas.renderAll());
+            }
         }
 
         // 2. Decorations
         if (showDecorations && tpl.decorations !== false) {
             const style = tpl.decorStyle || 'circles';
-            const isDark = isColorDark(bgCol);
             const decoColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
             const decoColor2 = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)';
 
@@ -351,12 +407,39 @@ export const SlideCanvas = forwardRef<SlideCanvasHandle>((_, ref) => {
             canvas.add(counterBg, counterLabel);
         }
 
-        // 7. Creator Branding (Bottom Bar)
+        // 7. Creator Branding (Bottom Bar with Avatar)
         if (showBranding) {
+            const avatarRadius = 18;
+            const avatarLeft = 80;
+            const avatarTop = h - 122;
+
+            const avatarCircle = new fabric.Circle({
+                radius: avatarRadius,
+                fill: accCol,
+                left: avatarLeft,
+                top: avatarTop,
+                selectable: false,
+                evented: false
+            });
+
+            const initial = (creatorName || 'C').trim().charAt(0).toUpperCase() || 'C';
+            const initialText = new fabric.Text(initial, {
+                fontSize: 16,
+                fontFamily: bFont,
+                fontWeight: '700',
+                fill: isColorDark(accCol) ? '#FFFFFF' : '#000000',
+                originX: 'center',
+                originY: 'center',
+                left: avatarLeft + avatarRadius,
+                top: avatarTop + avatarRadius,
+                selectable: false,
+                evented: false
+            });
+
             const nameText = new fabric.Text(creatorName || 'Creator', {
-                left: 80,
-                top: h - 125,
-                fontSize: 22,
+                left: avatarLeft + avatarRadius * 2 + 12,
+                top: avatarTop - 2,
+                fontSize: 20,
                 fontFamily: bFont,
                 fontWeight: '700',
                 fill: txtCol,
@@ -365,22 +448,22 @@ export const SlideCanvas = forwardRef<SlideCanvasHandle>((_, ref) => {
             });
 
             const handleText = new fabric.Text(creatorHandle || '@handle', {
-                left: 80,
-                top: h - 96,
-                fontSize: 16,
+                left: avatarLeft + avatarRadius * 2 + 12,
+                top: avatarTop + 24,
+                fontSize: 14,
                 fontFamily: bFont,
                 fontWeight: '500',
                 fill: txtCol,
-                opacity: 0.6,
+                opacity: 0.7,
                 selectable: false,
                 evented: false
             });
 
-            canvas.add(nameText, handleText);
+            canvas.add(avatarCircle, initialText, nameText, handleText);
         }
 
         canvas.renderAll();
-    }, [getTemplate, getBgColor, getTextColor, getAccentColor, getHeadingFont, getBodyFont, customBgGradient, customBgColor, showDecorations, isColorDark, showCounter, showBranding, creatorName, creatorHandle]);
+    }, [getTemplate, getBgColor, getTextColor, getAccentColor, getHeadingFont, getBodyFont, customBgGradient, customBgColor, customBgImage, bgOverlayOpacity, bgOverlayColor, showDecorations, isColorDark, showCounter, showBranding, creatorName, creatorHandle]);
 
     // Synchronize canvas text changes back to React state
     const syncCanvasToState = useCallback(() => {
@@ -452,7 +535,7 @@ export const SlideCanvas = forwardRef<SlideCanvasHandle>((_, ref) => {
 
         const currentSlide = slides[currentSlideIndex];
         if (currentSlide) {
-            drawSlide(canvas, currentSlide, currentSlideIndex + 1);
+            void drawSlide(canvas, currentSlide, currentSlideIndex + 1);
         }
     }, [slides, currentSlideIndex, drawSlide]);
 
@@ -485,14 +568,15 @@ export const SlideCanvas = forwardRef<SlideCanvasHandle>((_, ref) => {
             const targetSlide = slides[index];
             if (!targetSlide) return '';
 
-            drawSlide(canvas, targetSlide, index + 1);
-            await new Promise(r => setTimeout(r, 60));
+            await drawSlide(canvas, targetSlide, index + 1);
+            // Allow fabric canvas to settle after async image/gradient rendering
+            await new Promise(r => setTimeout(r, 100));
             const dataUrl = canvas.toDataURL({ format: 'png', quality: 1.0 });
 
             // Restore current slide
             const currentSlide = slides[currentSlideIndex];
             if (currentSlide) {
-                drawSlide(canvas, currentSlide, currentSlideIndex + 1);
+                await drawSlide(canvas, currentSlide, currentSlideIndex + 1);
             }
 
             return dataUrl;

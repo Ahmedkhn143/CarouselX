@@ -13,6 +13,9 @@ interface CarouselContextType {
     customTextColor: string | null;
     customAccentColor: string | null;
     customBgGradient: [string, string] | null;
+    customBgImage: string | null;
+    bgOverlayOpacity: number;
+    bgOverlayColor: string;
     headingFont: string | null;
     bodyFont: string | null;
     showDecorations: boolean;
@@ -43,6 +46,11 @@ interface CarouselContextType {
     setCustomTextColor: (color: string | null) => void;
     setCustomAccentColor: (color: string | null) => void;
     setCustomBgGradient: (grad: [string, string] | null) => void;
+    setCustomBgImage: (img: string | null) => void;
+    setBgOverlayOpacity: (opacity: number) => void;
+    setBgOverlayColor: (color: string) => void;
+    applyBgImageToSlide: (slideIdx: number, img: string | null, opacity?: number) => void;
+    applyBgImageToAll: (img: string | null, opacity?: number) => void;
     setHeadingFont: (font: string | null) => void;
     setBodyFont: (font: string | null) => void;
     setShowDecorations: (show: boolean) => void;
@@ -74,6 +82,9 @@ export const CarouselProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const [customTextColor, setCustomTextColor] = useState<string | null>(null);
     const [customAccentColor, setCustomAccentColor] = useState<string | null>(null);
     const [customBgGradient, setCustomBgGradient] = useState<[string, string] | null>(null);
+    const [customBgImage, setCustomBgImage] = useState<string | null>(null);
+    const [bgOverlayOpacity, setBgOverlayOpacity] = useState<number>(0.65);
+    const [bgOverlayColor, setBgOverlayColor] = useState<string>('#000000');
 
     const [headingFont, setHeadingFont] = useState<string | null>(null);
     const [bodyFont, setBodyFont] = useState<string | null>(null);
@@ -119,6 +130,10 @@ export const CarouselProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             if (draft.customBgColor !== undefined) setCustomBgColor(draft.customBgColor);
             if (draft.customTextColor !== undefined) setCustomTextColor(draft.customTextColor);
             if (draft.customAccentColor !== undefined) setCustomAccentColor(draft.customAccentColor);
+            if (draft.customBgGradient !== undefined) setCustomBgGradient(draft.customBgGradient);
+            if (draft.customBgImage !== undefined) setCustomBgImage(draft.customBgImage);
+            if (draft.bgOverlayOpacity !== undefined) setBgOverlayOpacity(draft.bgOverlayOpacity);
+            if (draft.bgOverlayColor !== undefined) setBgOverlayColor(draft.bgOverlayColor);
             if (draft.headingFont !== undefined) setHeadingFont(draft.headingFont);
             if (draft.bodyFont !== undefined) setBodyFont(draft.bodyFont);
             if (draft.showDecorations !== undefined) setShowDecorations(draft.showDecorations);
@@ -193,17 +208,49 @@ export const CarouselProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         });
     };
 
+    const applyBgImageToSlide = (slideIdx: number, img: string | null, opacity?: number) => {
+        setSlides(prev => {
+            const next = [...prev];
+            if (next[slideIdx]) {
+                next[slideIdx] = {
+                    ...next[slideIdx],
+                    bgImage: img || undefined,
+                    bgOverlayOpacity: opacity !== undefined ? opacity : next[slideIdx].bgOverlayOpacity
+                };
+            }
+            return next;
+        });
+        showToast(img ? "Background applied to current slide!" : "Slide background cleared.");
+    };
+
+    const applyBgImageToAll = (img: string | null, opacity?: number) => {
+        setCustomBgImage(img);
+        if (opacity !== undefined) setBgOverlayOpacity(opacity);
+        // Also clear individual slide bg overrides so global applies everywhere
+        setSlides(prev => prev.map(s => {
+            const copy = { ...s };
+            delete copy.bgImage;
+            delete copy.bgOverlayOpacity;
+            return copy;
+        }));
+        showToast(img ? "Background applied to ALL slides!" : "Carousel background cleared.");
+    };
+
     const setTemplate = (templateKey: string) => {
         setActiveTemplate(templateKey);
         setCustomBgColor(null);
         setCustomTextColor(null);
         setCustomAccentColor(null);
         setCustomBgGradient(null);
+        setCustomBgImage(null);
 
         const tpl = TEMPLATES[templateKey];
         if (tpl) {
             if (tpl.bgGradient) {
                 setCustomBgGradient(tpl.bgGradient);
+            }
+            if (tpl.bgImage) {
+                setCustomBgImage(tpl.bgImage);
             }
         }
     };
@@ -218,6 +265,10 @@ export const CarouselProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             customBgColor,
             customTextColor,
             customAccentColor,
+            customBgGradient,
+            customBgImage,
+            bgOverlayOpacity,
+            bgOverlayColor,
             headingFont,
             bodyFont,
             showDecorations,
@@ -238,6 +289,9 @@ export const CarouselProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 customTextColor,
                 customAccentColor,
                 customBgGradient,
+                customBgImage,
+                bgOverlayOpacity,
+                bgOverlayColor,
                 headingFont,
                 bodyFont,
                 showDecorations,
@@ -268,6 +322,11 @@ export const CarouselProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 setCustomTextColor,
                 setCustomAccentColor,
                 setCustomBgGradient,
+                setCustomBgImage,
+                setBgOverlayOpacity,
+                setBgOverlayColor,
+                applyBgImageToSlide,
+                applyBgImageToAll,
                 setHeadingFont,
                 setBodyFont,
                 setShowDecorations,

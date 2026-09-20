@@ -18,6 +18,10 @@ export interface SavedDraft {
     customBgColor?: string | null;
     customTextColor?: string | null;
     customAccentColor?: string | null;
+    customBgGradient?: [string, string] | null;
+    customBgImage?: string | null;
+    bgOverlayOpacity?: number;
+    bgOverlayColor?: string;
     headingFont?: string | null;
     bodyFont?: string | null;
     showDecorations?: boolean;

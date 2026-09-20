@@ -11,6 +11,8 @@ export interface Slide {
     body?: string;
     subtitle?: string;
     badge?: string;
+    bgImage?: string;
+    bgOverlayOpacity?: number;
 }
 
 export interface Template {
@@ -18,6 +20,7 @@ export interface Template {
     category: TemplateCategory;
     bgColor?: string;
     bgGradient?: [string, string];
+    bgImage?: string;
     textColor: string;
     accentColor: string;
     headingFont: string;
